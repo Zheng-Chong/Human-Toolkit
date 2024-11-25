@@ -350,7 +350,6 @@ class AutoMasker:
     ):
         assert mask_type in ['upper', 'lower', 'overall', 'inner', 'outer'], f"mask_type should be one of ['upper', 'lower', 'overall', 'inner', 'outer'], but got {mask_type}"
         preprocess_results = self.preprocess_image(image)
-        print(np.unique(np.array(preprocess_results['densepose'])))
         mask = self.cloth_agnostic_mask(
             preprocess_results['densepose'], 
             preprocess_results['schp_lip'], 

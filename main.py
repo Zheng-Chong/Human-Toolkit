@@ -1,10 +1,12 @@
 import os
 import argparse
 from huggingface_hub import snapshot_download
+import torch
 from cloth_masker import AutoMasker
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
+from tqdm import tqdm
 
 def process_single_image(masker, img_path, output_dir, tools):
     """处理单张图片的函数"""
@@ -14,10 +16,6 @@ def process_single_image(masker, img_path, output_dir, tools):
             tools=tools
         )
         base_name = img_path.stem
-        # 保存mask
-        mask_path = os.path.join(output_dir, f"{base_name}_mask.png")
-        results['mask'].save(mask_path)
-        
         # 保存处理结果
         for tool in tools:
             tool_path = os.path.join(output_dir, tool, f"{base_name}.png")
@@ -35,7 +33,7 @@ def process_images(args):
     maskers = [
         AutoMasker(
             model_zoo_root=model_zoo_root,
-            device=args.device
+            device="cuda" if torch.cuda.is_available() else "cpu"
         ) for _ in range(num_workers)
     ]
     
@@ -49,9 +47,15 @@ def process_images(args):
         if img_path.suffix.lower() in img_extensions
     ]
     
-    # 使用线程池处理图片
+    # 使用线程池处理图片，添加进度条
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = []
+        # 创建进度条
+        progress_bar = tqdm(total=len(image_files), desc=f"预处理{args.input_dir}")
+        
+        def update_progress(future):
+            progress_bar.update(1)
+        
         for i, img_path in enumerate(image_files):
             masker = maskers[i % num_workers]  # 循环使用 maskers
             future = executor.submit(
@@ -59,13 +63,14 @@ def process_images(args):
                 masker,
                 img_path,
                 args.output_dir,
-                args.mask_type,
-                args.save_schp
+                args.tools
             )
+            future.add_done_callback(update_progress)  # 添加回调函数更新进度
             futures.append(future)
         
         # 等待所有任务完成
         concurrent.futures.wait(futures)
+        progress_bar.close()
 
 def main():
     parser = argparse.ArgumentParser(description='批量处理图片生成衣物遮罩')
