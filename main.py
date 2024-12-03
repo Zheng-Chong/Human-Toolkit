@@ -53,11 +53,15 @@ def process_images(args):
     # 初始化多个 AutoMasker
     model_zoo_root = snapshot_download(args.model_zoo_root)
     num_workers = args.num_workers
+    
+    # 获取所有可用的 GPU
+    available_gpus = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
+    
     maskers = [
         AutoMasker(
             model_zoo_root=model_zoo_root,
-            device="cuda" if torch.cuda.is_available() else "cpu"
-        ) for _ in range(num_workers)
+            device=available_gpus[i % len(available_gpus)] if available_gpus else "cpu"
+        ) for i in range(num_workers)
     ]
     
     os.makedirs(args.output_dir, exist_ok=True)

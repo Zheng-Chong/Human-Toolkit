@@ -20,8 +20,8 @@ def compose_single_mask_with_masker(
     densepose_path, schp_lip_path, schp_atr_path = paths
     
     densepose_mask = Image.open(densepose_path).convert('L')
-    schp_lip_mask = Image.open(schp_lip_path).convert('L')
-    schp_atr_mask = Image.open(schp_atr_path).convert('L')
+    schp_lip_mask = Image.open(schp_lip_path).convert('P')
+    schp_atr_mask = Image.open(schp_atr_path).convert('P')
     
     # # 保证三个mask的尺寸一致
     # if width is None or height is None:
@@ -50,17 +50,18 @@ def compose_single_mask_with_masker(
 def process_item(item: dict, masker: AutoMasker, output_dir: str=None) -> str:
     """处理单个数据项的函数"""
     person_path = item['person']
-    # 获取 person 的尺寸
-    person_img = Image.open(person_path)
-    person_width, person_height = person_img.size
-    # 根据person路径构造对应的预处理结果路径
-    densepose_path = person_path.replace('person', 'annotations/densepose').replace('.jpg', '.png')
-    schp_lip_path = person_path.replace('person', 'annotations/schp_lip').replace('.jpg', '.png')
-    schp_atr_path = person_path.replace('person', 'annotations/schp_atr').replace('.jpg', '.png')
     if output_dir is None:
-        output_dir = os.path.dirname(person_path).replace('person', 'annotations/mask_v1')
+        output_dir = os.path.dirname(person_path).replace('person', 'annotations_new/mask_v1')
         
     if not os.path.exists(os.path.join(output_dir, os.path.basename(person_path).replace('.jpg', '.png'))):
+        # 获取 person 的尺寸
+        person_img = Image.open(person_path)
+        person_width, person_height = person_img.size
+        # 根据person路径构造对应的预处理结果路径
+        densepose_path = person_path.replace('person', 'annotations_new/densepose').replace('.jpg', '.png')
+        schp_lip_path = person_path.replace('person', 'annotations_new/schp_lip').replace('.jpg', '.png')
+        schp_atr_path = person_path.replace('person', 'annotations_new/schp_atr').replace('.jpg', '.png')
+       
         return compose_single_mask_with_masker(
             paths=(densepose_path, schp_lip_path, schp_atr_path),
             masker=masker,
@@ -84,13 +85,10 @@ def compose_masks(
     src_root = Path(jsonl_path).parent
     with open(jsonl_path, 'r') as f:
         items = [json.loads(line) for line in f]
+        
+    items = [item for item in items if item['category'] == 'upper']  # FIXME: 目前只处理full类别
     
-    # 修改：使用固定数量的worker，避免创建过多masker实例
-    max_workers = min(max_workers or os.cpu_count(), 8)  # 限制最大线程数为8
-    
-    # 修改：提前创建固定数量的masker
     masker = AutoMasker(model_zoo_root=None, load_models=False)
-    
     results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []

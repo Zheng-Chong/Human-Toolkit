@@ -6,7 +6,7 @@ import cv2
 from diffusers.image_processor import VaeImageProcessor
 import torch
 from tqdm import tqdm
-from controlnet_aux import OpenposeDetector, DWposeDetector
+# from controlnet_aux import OpenposeDetector, DWposeDetector
 
 
 from SCHP import SCHP
@@ -212,8 +212,8 @@ class AutoMasker:
 
         if load_models:
             # Pose Models
-            self.openpose_processor = OpenposeDetector.from_pretrained("lllyasviel/Annotators").to(device)
-            self.dwpose_processor = DWposeDetector(device=device)
+            # self.openpose_processor = OpenposeDetector.from_pretrained("lllyasviel/Annotators").to(device)
+            # self.dwpose_processor = DWposeDetector(device=device)
             densepose_ckpt = os.path.join(model_zoo_root, 'DensePose')
             self.densepose_processor = DensePose(densepose_ckpt, device)
             # SCHP Models
@@ -270,8 +270,6 @@ class AutoMasker:
         densepose_mask = np.array(densepose_mask)
         schp_lip_mask = np.array(schp_lip_mask)
         schp_atr_mask = np.array(schp_atr_mask)
-        print(densepose_mask.shape, schp_lip_mask.shape, schp_atr_mask.shape)
-        print(np.unique(densepose_mask), np.unique(schp_lip_mask), np.unique(schp_atr_mask))
         
         # Strong Protect Area (Hands, Face, Accessory, Feet)
         hands_protect_area = part_mask_of(['hands', 'feet'], densepose_mask, DENSE_INDEX_MAP)
