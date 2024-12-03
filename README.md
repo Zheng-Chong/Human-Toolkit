@@ -1,25 +1,28 @@
 # Human-Toolkit
 
-基于 开源人体解析与姿态估计模型 的批量预处理工具，可以自动处理大量图片并生成分割和姿态估计的结果。
+基于开源人体解析与姿态估计模型的批量预处理工具，可以自动处理大量图片并生成分割、姿态估计及服装遮罩的结果。
 
 ## 功能特点
 
 - 支持批量处理图片
 - 多线程并行处理，提高效率
 - 支持多种分析工具：
-  - DensePose
-  - SCHP-ATR
-  - SCHP-LIP
-  - SCHP-Pascal
+  - DensePose：人体密集姿态估计
+  - SCHP-ATR：人体语义分割（ATR数据集）
+  - SCHP-LIP：人体语义分割（LIP数据集）
+  - SCHP-Pascal：人体语义分割（Pascal数据集）
+- 支持合成服装遮罩：
+  - 自动合成上衣/下装遮罩
+  - 基于多个预处理结果的智能融合
 - 自动下载并使用预训练模型
 
-## 使用方法
+## 基础预处理工具
+
+### 使用方法
 
 基本用法：
 ```bash
-
 python main.py --input_dir 图片目录 --output_dir 输出目录 --tools 工具1 工具2 工具3 --model_zoo_root 模型库地址 --num_workers 线程数
-
 ```
 
 ### 参数说明
@@ -27,20 +30,20 @@ python main.py --input_dir 图片目录 --output_dir 输出目录 --tools 工具
 - `--input_dir`：输入图片所在目录（必需）
 - `--output_dir`：处理结果保存目录（必需）
 - `--tools`：选择使用的处理工具，可多选 [densepose, schp_atr, schp_lip, schp_pascal]
-- `--model_zoo_root`：模型库地址，默认为 "zhengchong/Human-Toolkit"
+- `--model_zoo_root`：模型��地址，默认为 "zhengchong/Human-Toolkit"
 - `--num_workers`：并行处理的线程数，默认为 4
 
 ### 示例
 
 ```bash
-python main.py \
+CUDA_VISIBLE_DEVICES=1 python main.py \
     --input_dir ./images \
-    --output_dir ./results \
-    --tools densepose schp_atr \
+    --output_dir ./annotations \
+    --tools densepose schp_atr schp_lip schp_pascal \
     --num_workers 8
 ```
 
-## 输出结果
+### 输出结果
 
 程序会在 `output_dir`下生成以下文件：
 
@@ -48,6 +51,49 @@ python main.py \
 - `schp_atr/{图片名}.png`：SCHP-ATR 处理结果
 - `schp_lip/{图片名}.png`：SCHP-LIP 处理结果
 - `schp_pascal/{图片名}.png`：SCHP-Pascal 处理结果
+
+## Mask 合成工具
+
+### 使用方法
+
+基本用法：
+```bash
+python mask_compose.py --jsonl_path 数据文件.jsonl --max_workers 线程数
+```
+
+### 数据文件层级  
+`--jsonl_path` 所在目录需包含 person/ 和 cloth/ 两个目录，且与 annotations/ 同级
+如：
+```
+ROOT/
+├── annotations/
+│   ├── densepose/
+│   ├── schp_atr/
+│   ├── schp_lip/
+│   └── schp_pascal/
+├── person/
+├── cloth/
+└── data.jsonl
+```
+
+
+### 参数说明
+
+- `--jsonl_path`：输入的 JSONL 文件路径（必需），每行包含以下格式的 JSON：
+  ```json
+  {
+    "person": "person/图片路径.jpg", # 与 --jsonl_path 同级目录
+    "cloth": "cloth/图片路径.jpg", # 与 --jsonl_path 同级目录
+    "category": "upper"  # 或 "lower", "full", 表示上衣、下装、全身
+  }
+  ```
+  上面预处理的结果目录 annotations/ 需与 person/ 和 cloth/ 目录同级
+- `--output_dir`：处理结果保存目录（必需），建议 `annotations/mask-v1`
+- `--max_workers`：并行处理的线程数，默认为 4
+
+### 输出结果
+
+程序会在 `output_dir` 下生成与输入图片对应的 mask 文件（PNG格式）。
 
 ## 注意事项
 

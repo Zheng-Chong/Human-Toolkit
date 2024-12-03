@@ -8,20 +8,43 @@ from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 from tqdm import tqdm
 
+image_mode_mapping = {
+    'openpose': 'RGB',
+    'dwpose': 'RGB',
+    'densepose': 'L',
+    'schp_lip': 'P',
+    'schp_atr': 'P',
+    'schp_pascal': 'P',
+}
+
 def process_single_image(masker, img_path, output_dir, tools):
     """处理单张图片的函数"""
     try:
-        results = masker.preprocess_image(
-            str(img_path),
-            tools=tools
-        )
+        # 检查所有工具的输出文件是否都已存在
         base_name = img_path.stem
-        # 保存处理结果
+        all_exist = True
+        needed_tools = []
         for tool in tools:
             tool_path = os.path.join(output_dir, tool, f"{base_name}.png")
             if not os.path.exists(tool_path):
-                os.makedirs(os.path.dirname(tool_path), exist_ok=True)
-                results[tool].save(tool_path)
+                all_exist = False
+                needed_tools.append(tool)
+        
+        # 如果所有工具的输出都已存在，则跳过处理
+        if all_exist:
+            return
+            
+        # 只处理缺失的工具
+        results = masker.preprocess_image(
+            str(img_path),
+            tools=needed_tools
+        )
+        
+        # 保存处理结果
+        for tool in needed_tools:
+            tool_path = os.path.join(output_dir, tool, f"{base_name}.png")
+            os.makedirs(os.path.dirname(tool_path), exist_ok=True)
+            results[tool].save(tool_path, mode=image_mode_mapping[tool])
         
     except Exception as e:
         print(f"处理 {img_path.name} 时发生错误: {str(e)}")
@@ -51,7 +74,7 @@ def process_images(args):
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = []
         # 创建进度条
-        progress_bar = tqdm(total=len(image_files), desc=f"预处理{args.input_dir}")
+        progress_bar = tqdm(total=len(image_files), desc=f"预处理{args.input_dir[-20:]}")
         
         def update_progress(future):
             progress_bar.update(1)

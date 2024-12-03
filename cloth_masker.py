@@ -6,6 +6,8 @@ import cv2
 from diffusers.image_processor import VaeImageProcessor
 import torch
 from tqdm import tqdm
+from controlnet_aux import OpenposeDetector, DWposeDetector
+
 
 from SCHP import SCHP
 from densepose import DensePose, densepose_to_rgb
@@ -48,6 +50,16 @@ LIP_MAPPING = {
     'Skirt': 12, 'Face': 13, 'Left-arm': 14, 'Right-arm': 15,
     'Left-leg': 16, 'Right-leg': 17, 'Left-shoe': 18, 'Right-shoe': 19
 }
+PASCAL_MAPPING = {
+    'Background': 0,
+    'Head': 1,
+    'Torso': 2,
+    'Upper Arms': 3,
+    'Lower Arms': 4, 
+    'Upper Legs': 5,
+    'Lower Legs': 6
+}
+
 
 PROTECT_BODY_PARTS = {
     'upper': ['Left-leg', 'Right-leg'],
@@ -142,6 +154,9 @@ def part_mask_of(part: Union[str, list],
     return mask
 
 def hull_mask(mask_area: np.ndarray):
+    if len(mask_area.shape) > 2:
+        mask_area = mask_area[:,:,0]
+    
     ret, binary = cv2.threshold(mask_area, 127, 255, cv2.THRESH_BINARY)
     contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     hull_mask = np.zeros_like(mask_area)
@@ -188,25 +203,39 @@ class AutoMasker:
         self, 
         model_zoo_root,
         seed=42,
+        load_models=True,
         device='cuda'
     ):
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
-        
-        densepose_ckpt = os.path.join(model_zoo_root, 'DensePose')
-        schp_ckpt = os.path.join(model_zoo_root, 'SCHP')
-        
-        self.densepose_processor = DensePose(densepose_ckpt, device)
-        self.schp_processor_atr = SCHP(ckpt_path=os.path.join(schp_ckpt, 'schp-atr.pth'), device=device)
-        self.schp_processor_lip = SCHP(ckpt_path=os.path.join(schp_ckpt, 'schp-lip.pth'), device=device)
-        self.schp_processor_pascal = SCHP(ckpt_path=os.path.join(schp_ckpt, 'schp-pascal.pth'), device=device)
+
+        if load_models:
+            # Pose Models
+            self.openpose_processor = OpenposeDetector.from_pretrained("lllyasviel/Annotators").to(device)
+            self.dwpose_processor = DWposeDetector(device=device)
+            densepose_ckpt = os.path.join(model_zoo_root, 'DensePose')
+            self.densepose_processor = DensePose(densepose_ckpt, device)
+            # SCHP Models
+            schp_ckpt = os.path.join(model_zoo_root, 'SCHP')
+            self.schp_processor_atr = SCHP(ckpt_path=os.path.join(schp_ckpt, 'schp-atr.pth'), device=device)
+            self.schp_processor_lip = SCHP(ckpt_path=os.path.join(schp_ckpt, 'schp-lip.pth'), device=device)
+            self.schp_processor_pascal = SCHP(ckpt_path=os.path.join(schp_ckpt, 'schp-pascal.pth'), device=device)
+            
         
         self.mask_processor = VaeImageProcessor(vae_scale_factor=8, do_normalize=False, do_binarize=True, do_convert_grayscale=True)
 
 
     def preprocess_image(self, image_or_path, tools=['densepose', 'schp_atr', 'schp_lip']):
         results = {}
+        if 'openpose' in tools:
+            image = Image.open(image_or_path).convert('RGB') if isinstance(image_or_path, str) else image_or_path
+            image_size = max(*image.size)
+            results['openpose'] = self.openpose_processor(image, image_resolution=image_size, hand_and_face=True)
+        if 'dwpose' in tools:
+            image = Image.open(image_or_path).convert('RGB') if isinstance(image_or_path, str) else image_or_path
+            image_size = max(*image.size)
+            results['dwpose'] = self.dwpose_processor(image_or_path, image_resolution=image_size)
         if 'densepose' in tools:
             results['densepose'] = self.densepose_processor(image_or_path, resize=1024)
         if 'schp_atr' in tools:
@@ -215,6 +244,7 @@ class AutoMasker:
             results['schp_lip'] = self.schp_processor_lip(image_or_path)
         if 'schp_pascal' in tools:
             results['schp_pascal'] = self.schp_processor_pascal(image_or_path)
+
         return results
     
     @staticmethod
@@ -225,6 +255,8 @@ class AutoMasker:
         part: str='overall',
         **kwargs
     ):
+        if part == 'full':
+            part = 'overall'
         assert part in ['upper', 'lower', 'overall', 'inner', 'outer'], f"part should be one of ['upper', 'lower', 'overall', 'inner', 'outer'], but got {part}"
         w, h = densepose_mask.size
         
@@ -238,6 +270,8 @@ class AutoMasker:
         densepose_mask = np.array(densepose_mask)
         schp_lip_mask = np.array(schp_lip_mask)
         schp_atr_mask = np.array(schp_atr_mask)
+        print(densepose_mask.shape, schp_lip_mask.shape, schp_atr_mask.shape)
+        print(np.unique(densepose_mask), np.unique(schp_lip_mask), np.unique(schp_atr_mask))
         
         # Strong Protect Area (Hands, Face, Accessory, Feet)
         hands_protect_area = part_mask_of(['hands', 'feet'], densepose_mask, DENSE_INDEX_MAP)
