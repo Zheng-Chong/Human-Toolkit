@@ -346,7 +346,7 @@ def initialize_pretrained_model(model, settings, pretrained='./models/resnet101-
     model.std = settings['std']
 
     if pretrained is not None:
-        saved_state_dict = torch.load(pretrained)
+        saved_state_dict = torch.load(pretrained, weights_only=False)
         new_params = model.state_dict().copy()
         for i in saved_state_dict:
             i_parts = i.split('.')

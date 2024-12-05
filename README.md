@@ -16,6 +16,16 @@
   - 基于多个预处理结果的智能融合
 - 自动下载并使用预训练模型
 
+
+## 安装
+
+```bash
+conda create -n human-toolkit python=3.10
+conda activate human-toolkit
+pip install -r requirments.txt
+python -m pip install -e GroundingDINO  # C++ 扩展
+```
+
 ## 基础预处理工具
 
 ### 使用方法
@@ -30,7 +40,7 @@ python main.py --input_dir 图片目录 --output_dir 输出目录 --tools 工具
 - `--input_dir`：输入图片所在目录（必需）
 - `--output_dir`：处理结果保存目录（必需）
 - `--tools`：选择使用的处理工具，可多选 [densepose, schp_atr, schp_lip, schp_pascal]
-- `--model_zoo_root`：模型��地址，默认为 "zhengchong/Human-Toolkit"
+- `--model_zoo_root`：模型库地址，默认为 "zhengchong/Human-Toolkit"
 - `--num_workers`：并行处理的线程数，默认为 4
 
 ### 示例
@@ -94,6 +104,61 @@ ROOT/
 ### 输出结果
 
 程序会在 `output_dir` 下生成与输入图片对应的 mask 文件（PNG格式）。
+
+## Matting 工具
+
+### 使用方法
+
+基本用法：
+```bash
+python matting_cloth.py --jsonl_path 数据文件.jsonl --max_workers 线程数
+```
+
+### 数据文件层级
+与mask合成工具类似，`--jsonl_path` 所在目录需包含 cloth/ 目录：
+```
+ROOT/
+├── annotations/
+│   ├── cloth_matting/  # matting结果保存目录
+│   └── ...
+├── cloth/
+└── data.jsonl
+```
+
+### 参数说明
+
+- `--jsonl_path`：输入的 JSONL 文件路径（必需），每行包含以下格式的 JSON：
+  ```json
+  {
+    "cloth": "cloth/图片路径.jpg",  # 与 --jsonl_path 同级目录
+    "category": "upper"  # 或 "lower"，表示上衣或下装
+  }
+  ```
+- `--output_dir`：处理结果保存目录，默认为 `annotations/cloth_matting`
+- `--max_workers`：并行处理的线程数，默认为 4
+- `--device`：运行设备，默认为 'cuda'
+- `--working_size`：处理图像的工作尺寸，默认为 1024
+- `--part_filter`：处理类别过滤，可指定多个类别（例如：--part_filter upper lower）
+
+### 输出结果
+
+程序会在 `output_dir` 下生成与输入服装图片对应的matting遮罩文件（PNG格式）。matting遮罩是一个灰度图像，其中：
+- 255表示完全属于服装的区域
+- 0表示完全属于背景的区域
+- 中间值表示半透明区域
+
+### 示例
+
+```bash
+# 基本用法
+python matting_cloth.py --jsonl_path ./data.jsonl
+
+# 指定输出目录和线程数
+python matting_cloth.py --jsonl_path ./data.jsonl --output_dir ./annotations/cloth_matting --max_workers 8
+
+# 只处理上衣
+python matting_cloth.py --jsonl_path ./data.jsonl --part_filter upper
+```
 
 ## 注意事项
 

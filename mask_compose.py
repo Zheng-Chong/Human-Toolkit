@@ -51,16 +51,16 @@ def process_item(item: dict, masker: AutoMasker, output_dir: str=None) -> str:
     """处理单个数据项的函数"""
     person_path = item['person']
     if output_dir is None:
-        output_dir = os.path.dirname(person_path).replace('person', 'annotations_new/mask_v1')
+        output_dir = os.path.dirname(person_path).replace('person', 'annotations/mask_v1')
         
     if not os.path.exists(os.path.join(output_dir, os.path.basename(person_path).replace('.jpg', '.png'))):
         # 获取 person 的尺寸
         person_img = Image.open(person_path)
         person_width, person_height = person_img.size
         # 根据person路径构造对应的预处理结果路径
-        densepose_path = person_path.replace('person', 'annotations_new/densepose').replace('.jpg', '.png')
-        schp_lip_path = person_path.replace('person', 'annotations_new/schp_lip').replace('.jpg', '.png')
-        schp_atr_path = person_path.replace('person', 'annotations_new/schp_atr').replace('.jpg', '.png')
+        densepose_path = person_path.replace('person', 'annotations/densepose').replace('.jpg', '.png')
+        schp_lip_path = person_path.replace('person', 'annotations/schp_lip').replace('.jpg', '.png')
+        schp_atr_path = person_path.replace('person', 'annotations/schp_atr').replace('.jpg', '.png')
        
         return compose_single_mask_with_masker(
             paths=(densepose_path, schp_lip_path, schp_atr_path),
@@ -71,12 +71,20 @@ def process_item(item: dict, masker: AutoMasker, output_dir: str=None) -> str:
             height=person_height
         )
     else:
+        # 尝试读取，看是否有问题
+        try:
+            _ = Image.open(os.path.join(output_dir, os.path.basename(person_path).replace('.jpg', '.png')))
+        except Exception as e:
+            print(f"读取失败: {str(e)}")
+            os.remove(os.path.join(output_dir, os.path.basename(person_path).replace('.jpg', '.png')))
+            return None
         return os.path.join(output_dir, os.path.basename(person_path).replace('.jpg', '.png'))
 
 def compose_masks(
     jsonl_path: str,
     output_dir: str = None,
-    max_workers: int = None
+    max_workers: int = None,
+    part_filter: list = None
 ) -> List[str]:
     """从jsonl文件批量处理mask生成"""
     if output_dir:
@@ -85,8 +93,9 @@ def compose_masks(
     src_root = Path(jsonl_path).parent
     with open(jsonl_path, 'r') as f:
         items = [json.loads(line) for line in f]
-        
-    items = [item for item in items if item['category'] == 'upper']  # FIXME: 目前只处理full类别
+    
+    if part_filter:
+        items = [item for item in items if item['category'] in part_filter]
     
     masker = AutoMasker(model_zoo_root=None, load_models=False)
     results = []
@@ -121,6 +130,8 @@ def main():
                       help='输出目录路径')
     parser.add_argument('--max_workers', type=int, default=4,
                       help='最大线程数 (默认: 4)')
+    parser.add_argument('--part_filter', type=str, nargs='+', default=None,
+                      help='处理类别过滤，可指定多个类别 (例如: --part_filter upper lower)')
     
     args = parser.parse_args()
     
