@@ -52,6 +52,33 @@ dataset_settings = {
     }
 }
 
+
+ATR_MAPPING = {
+    'Background': 0, 'Hat': 1, 'Hair': 2, 'Sunglasses': 3, 
+    'Upper-clothes': 4, 'Skirt': 5, 'Pants': 6, 'Dress': 7,
+    'Belt': 8, 'Left-shoe': 9, 'Right-shoe': 10, 'Face': 11, 
+    'Left-leg': 12, 'Right-leg': 13, 'Left-arm': 14, 'Right-arm': 15,
+    'Bag': 16, 'Scarf': 17
+}
+LIP_MAPPING = {
+    'Background': 0, 'Hat': 1, 'Hair': 2, 'Glove': 3, 
+    'Sunglasses': 4, 'Upper-clothes': 5, 'Dress': 6, 'Coat': 7,
+    'Socks': 8, 'Pants': 9, 'Jumpsuits': 10, 'Scarf': 11, 
+    'Skirt': 12, 'Face': 13, 'Left-arm': 14, 'Right-arm': 15,
+    'Left-leg': 16, 'Right-leg': 17, 'Left-shoe': 18, 'Right-shoe': 19
+}
+PASCAL_MAPPING = {
+    'Background': 0,
+    'Head': 1,
+    'Torso': 2,
+    'Upper Arms': 3,
+    'Lower Arms': 4, 
+    'Upper Legs': 5,
+    'Lower Legs': 6
+}
+
+
+
 class SCHP:
     def __init__(self, ckpt_path, device):
         dataset_type = None

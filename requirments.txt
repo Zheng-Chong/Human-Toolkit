@@ -27,3 +27,4 @@ addict
 yapf
 supervision
 timm
+image-quality

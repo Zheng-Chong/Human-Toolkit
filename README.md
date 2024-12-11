@@ -160,6 +160,60 @@ python matting_cloth.py --jsonl_path ./data.jsonl --output_dir ./annotations/clo
 python matting_cloth.py --jsonl_path ./data.jsonl --part_filter upper
 ```
 
+## Image Caption 工具
+
+### 使用方法
+
+基本用法：
+```bash
+python image_caption.py --input_dir 图片目录 --output_file 输出文件.jsonl --num_workers 线程数
+```
+
+### 功能特点
+
+- 支持批量处理图片目录
+- 多GPU并行处理，提高效率
+- 为每张图片生成三种不同详细程度的描述
+- 支持断点续传，可以继续处理未完成的任务
+- 使用 JSONL 格式保存结果，便于后续处理
+
+### 参数说明
+
+- `--input_dir`：输入图片所在目录（必需）
+- `--output_file`：输出的 JSONL 文件路径（必需）
+- `--num_workers`：并行处理的线程数，默认为 4
+
+### 输出格式
+
+程序会将处理结果保存为 JSONL 格式，每行包含一个图片的处理结果：
+```json
+{
+    "image_path": "图片路径",
+    "captions": {
+        "<CAPTION>": "简单描述",
+        "<DETAILED_CAPTION>": "详细描述",
+        "<MORE_DETAILED_CAPTION>": "更详细的描述"
+    }
+}
+```
+
+### 示例
+
+```bash
+# 基本用法
+python image_caption.py --input_dir ./images --output_file captions.jsonl
+
+# 使用8个线程处理
+python image_caption.py --input_dir ./images --output_file captions.jsonl --num_workers 8
+```
+
+### 注意事项
+
+1. 首次运行时会自动下载 Florence-2-large 模型，需要保持网络连接
+2. 程序支持断点续传，如果处理过程中断，再次运行时会自动跳过已处理的图片
+3. 建议根据显卡数量和内存大小调整 num_workers 参数
+4. 支持处理的图片格式：JPG、JPEG、PNG、BMP
+
 ## 注意事项
 
 1. 支持的图片格式：JPG、JPEG、PNG、BMP

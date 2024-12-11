@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from huggingface_hub import snapshot_download
+from PIL import Image
 
 import MAM.utils as utils
 from GroundingDINO.groundingdino.util.inference import Model

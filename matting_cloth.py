@@ -15,35 +15,53 @@ def process_single_cloth(
     output_dir: str = None
 ) -> Union[str, None]:
     """处理单件服装图像的matting"""
-    # try:
-    # 读取图像
-    image = Image.open(cloth_path).convert('RGB')
-    
-    # 根据类别选择提示词
-    text_prompt = "pants" if category == "lower" else "upper clothes"
-    
-    # 执行matting
-    alpha_pred = matting_model.matting(
-        image, 
-        text_prompt=text_prompt,
-        box_threshold=0.25,
-        text_threshold=0.25,
-        return_pil=True
-    )
-    
-    if output_dir:
+    try:
+        # 判断是否包含 cloth 字符串 & 是否已经存在
+        save_path = os.path.join(output_dir, os.path.basename(cloth_path).replace('.jpg', '.png'))
+        if 'cloth' not in cloth_path or os.path.exists(save_path):
+            return None
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        output_name = Path(cloth_path).stem + '.png'
-        output_path = os.path.join(output_dir, output_name)
-        alpha_pred.save(output_path)
-        return output_path
         
-    return alpha_pred
+        # FIXME 判断 full 里面有没有已经处理的
+        tmp_path = os.path.join(output_dir.replace('upper', 'full').replace('lower', 'full'), os.path.basename(cloth_path).replace('.jpg', '.png'))
+        # print(f"tmp_path: {tmp_path}")
+        if os.path.exists(tmp_path):
+            # mv 到 output_dir
+            print(f"mv {tmp_path} to {save_path}")
+            os.rename(tmp_path, save_path)
+            return save_path
         
-    # except Exception as e:
-    #     print(f"处理{cloth_path}时发生错误: {str(e)}")
-    #     return None
+        # 读取图像
+        image = Image.open(cloth_path).convert('RGB')
+        
+        # 根据类别选择提示词
+        text_prompt = "pants" if category == "lower" else "upper clothes"
+        
+        # 执行matting
+        alpha_pred = matting_model.matting(
+            image, 
+            text_prompt=text_prompt,
+            box_threshold=0.25,
+            text_threshold=0.25,
+            return_pil=True
+        )
+        
+        if output_dir:
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            output_name = Path(cloth_path).stem + '.png'
+            output_path = os.path.join(output_dir, output_name)
+            # print(f"cloth路径: {cloth_path}")
+            # print(f"保存matting遮罩到{output_path}")
+            alpha_pred.save(output_path)
+            return output_path
+            
+        return alpha_pred
+            
+    except Exception as e:
+        print(f"处理{cloth_path}时发生错误: {str(e)}")
+        return None
 
 def process_cloth_batch(
     jsonl_path: str,
@@ -75,8 +93,8 @@ def process_cloth_batch(
         # 预处理所有items的路径
         for item in items:
             cloth_path = str(src_root / item['cloth'])
-            if output_dir is None:
-                output_dir = os.path.dirname(cloth_path).replace('cloth', 'annotations/cloth_matting')
+            # if output_dir is None:
+            output_dir = os.path.dirname(cloth_path).replace('cloth', 'annotations/cloth_matting')
                 
             if not os.path.exists(os.path.join(output_dir, os.path.basename(cloth_path).replace('.jpg', '.png'))):
                 future = executor.submit(

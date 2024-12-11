@@ -1,0 +1,204 @@
+import PIL.Image as Image
+from SCHP import LIP_MAPPING
+from typing import Union
+import numpy as np
+import cv2
+
+
+# 判断是否是外套和上衣叠穿
+def wear_upper_with_outer(
+    person_lip_path_or_image: Union[str, Image.Image, np.ndarray]
+):
+    # 打开图片
+    person_lip_image = person_lip_path_or_image
+    if isinstance(person_lip_path_or_image, str):
+        person_lip_image = Image.open(person_lip_path_or_image)
+    if isinstance(person_lip_path_or_image, Image.Image):
+        person_lip_image = person_lip_path_or_image
+        assert person_lip_image.mode == 'P', 'person_lip_image 必须是 P 模式'
+        person_lip_image = person_lip_image.getdata()
+        
+    # 上衣类别
+    upper_index = [LIP_MAPPING[_] for _ in ['Upper-clothes', 'Dress', 'Jumpsuits']]
+    # 外套类别
+    outer_index = LIP_MAPPING['Coat']
+    
+    # 判断是否存在上衣和外套
+    image_index = np.unique(person_lip_image)
+    if outer_index in image_index and any([_ in image_index for _ in upper_index]):
+        return True
+    else:
+        return False
+    
+# 判断图像是否为高质量
+def is_image_high_quality(image_path, threshold=100):
+    """
+    判断图像是否为清晰高质量原图。
+
+    参数:
+        image_path (str): 图像文件路径。
+        threshold (float): Laplacian变异数的阈值，值越高要求越清晰。默认值为100。
+
+    返回:
+        bool: True表示图像清晰度足够高，False表示图像模糊。
+        float: 图像的Laplacian变异数值。
+    """
+    # 读取图像
+    image = cv2.imread(image_path)
+    if image is None:
+        raise ValueError("无法读取图像，请检查路径是否正确。")
+    # 转换为灰度图
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # 计算Laplacian变异数
+    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    # 根据阈值判断是否清晰
+    return laplacian_var > threshold, laplacian_var
+
+
+import cv2
+import numpy as np
+from sklearn.cluster import KMeans
+
+def extract_dominant_color(image, k=3):
+    """
+    提取图像的主色调（使用K均值聚类）。
+    
+    参数:
+        image (numpy.ndarray): 输入的图像数据（BGR格式）。
+        k (int): 聚类中心的个数，默认为3。
+
+    返回:
+        tuple: 主色调的BGR值 (B, G, R)。
+    """
+    # 将图像转换为二维数组 (像素数, 3)
+    data = image.reshape((-1, 3))
+    data = np.float32(data)
+    # 使用K均值聚类
+    kmeans = KMeans(n_clusters=k, random_state=42).fit(data)
+    dominant_color = kmeans.cluster_centers_[np.argmax(np.bincount(kmeans.labels_))]
+    return tuple(map(int, dominant_color))
+
+def color_distance(color1, color2):
+    """
+    计算两个颜色之间的欧几里得距离。
+    
+    参数:
+        color1 (tuple): 第一个颜色的BGR值 (B, G, R)。
+        color2 (tuple): 第二个颜色的BGR值 (B, G, R)。
+    
+    返回:
+        float: 欧几里得距离。
+    """
+    return np.linalg.norm(np.array(color1) - np.array(color2))
+
+def are_dominant_colors_similar(
+    image1_path, image2_path, 
+    mask1_path=None, mask2_path=None,
+    threshold=50):
+    """
+    判断两个图像的主色调是否一致。
+
+    参数:
+        image1_path (str): 第一张图像的路径。
+        image2_path (str): 第二张图像的路径。
+        mask1_path (str, optional): 第一张图像的掩膜路径。默认为 None。
+        mask2_path (str, optional): 第二张图像的掩膜路径。默认为 None。
+        threshold (float): 颜色距离的阈值，默认为50。
+
+    返回:
+        dict: 包括是否一致 (bool) 和每个图像的均值颜色及距离。
+    """
+    # 读取图像
+    image1 = cv2.imread(image1_path)
+    image2 = cv2.imread(image2_path)
+    if image1 is None or image2 is None:
+        raise ValueError("无法读取图像，请检查路径是否正确。")
+    
+    # 计算第一张图像的均值颜色
+    if mask1_path:
+        mask1 = cv2.imread(mask1_path, cv2.IMREAD_GRAYSCALE)
+        if mask1 is None:
+            raise ValueError("无法读取掩膜1，请检查路径是否正确。")
+        # 创建布尔掩膜
+        mask1_bool = mask1 >= 128
+        # 计算每个通道的均值
+        mean_color1 = tuple([int(image1[:, :, c][mask1_bool].mean()) for c in range(3)])
+    else:
+        # 如果没有掩膜，计算整个图像的均值
+        mean_color1 = tuple([int(image1[:, :, c].mean()) for c in range(3)])
+    
+    # 计算第二张图像的均值颜色
+    if mask2_path:
+        mask2 = cv2.imread(mask2_path, cv2.IMREAD_GRAYSCALE)
+        if mask2 is None:
+            raise ValueError("无法读取掩膜2，请检查路径是否正确。")
+        # 创建布尔掩膜
+        mask2_bool = mask2 >= 128
+        # 计算每个通道的均值
+        mean_color2 = tuple([int(image2[:, :, c][mask2_bool].mean()) for c in range(3)])
+    else:
+        # 如果没有掩膜，计算整个图像的均值
+        mean_color2 = tuple([int(image2[:, :, c].mean()) for c in range(3)])
+    
+    # 计算颜色距离
+    dist = color_distance(mean_color1, mean_color2)
+    is_similar = dist <= threshold
+
+    # 返回结果
+    return {
+        "is_similar": is_similar,
+        "mean_color1": mean_color1,
+        "mean_color2": mean_color2,
+        "distance": dist
+    }
+
+# 判断一个 mask 文件读取后是否有大于3个边上有白色（Mask 区域）
+def has_more_than_three_white_edges(mask_path_or_image: Union[str, Image.Image, np.ndarray]) -> bool:
+    """
+    判断一个 mask 文件读取后是否有大于3个边上有白色（Mask 区域）。
+
+    参数:
+        mask_path_or_image (str | Image.Image | np.ndarray): Mask 文件的路径或图像数据。
+
+    返回:
+        bool: 如果有大于3个边上有白色，返回 True，否则返回 False。
+    """
+    # 读取图片
+    if isinstance(mask_path_or_image, str):
+        mask_image = Image.open(mask_path_or_image).convert('L')
+    elif isinstance(mask_path_or_image, Image.Image):
+        mask_image = mask_path_or_image.convert('L')
+    elif isinstance(mask_path_or_image, np.ndarray):
+        if len(mask_path_or_image.shape) == 3:
+            mask_image = cv2.cvtColor(mask_path_or_image, cv2.COLOR_BGR2GRAY)
+        else:
+            mask_image = mask_path_or_image
+    else:
+        raise TypeError("mask_path_or_image 必须是 str, Image.Image 或 numpy.ndarray 类型")
+
+    # 转换为二值图像
+    _, binary_mask = cv2.threshold(np.array(mask_image), 127, 255, cv2.THRESH_BINARY)
+
+    height, width = binary_mask.shape
+    edges_with_white = 0
+
+    # 检查上边缘
+    if np.any(binary_mask[0, :] == 255):
+        edges_with_white += 1
+
+    # 检查下边缘
+    if np.any(binary_mask[-1, :] == 255):
+        edges_with_white += 1
+
+    # 检查左边缘
+    if np.any(binary_mask[:, 0] == 255):
+        edges_with_white += 1
+
+    # 检查右边缘
+    if np.any(binary_mask[:, -1] == 255):
+        edges_with_white += 1
+
+    return edges_with_white >= 3
+
+if __name__ == '__main__':
+    pass
