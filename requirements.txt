@@ -28,3 +28,5 @@ yapf
 supervision
 timm
 image-quality
+git+https://github.com/openai/CLIP.git
+pytorch-lightning==2.4.0

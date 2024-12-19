@@ -59,7 +59,8 @@ class ImageCaptioner:
                     image_size=(image.width, image.height)
                 )
                 
-                results[prompt] = caption
+                # results[prompt] = caption
+                results.update(caption)
                 
             return {
                 "image_path": os.path.basename(image_path),
