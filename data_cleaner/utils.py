@@ -29,7 +29,56 @@ def wear_upper_with_outer(
         return True
     else:
         return False
+
+# 获取目标服装区域的 Mask
+def get_target_cloth_mask(
+    person_lip_path_or_image: Union[str, Image.Image, np.ndarray],
+    target_cloth_type: str
+) -> Image.Image:
+    """
+    获取目标服装区域的 Mask
     
+    参数:
+        person_lip_path_or_image (str | Image.Image | np.ndarray): 输入的 person_lip 文件路径或图像数据。
+        target_cloth_type (str): 目标服装类型，可选 'upper' 'lower' 或 'full'。
+    
+    返回:
+        Image.Image: 目标服装区域的 Mask。
+    """
+    # 打开图片
+    if isinstance(person_lip_path_or_image, str):
+        person_lip_image = Image.open(person_lip_path_or_image)
+    elif isinstance(person_lip_path_or_image, Image.Image):
+        person_lip_image = person_lip_path_or_image
+    elif isinstance(person_lip_path_or_image, np.ndarray):
+        person_lip_image = Image.fromarray(person_lip_path_or_image)
+    else:
+        raise TypeError("输入必须是文件路径、PIL图像或NumPy数组")
+
+    # 确保图像是调色板模式
+    assert person_lip_image.mode == 'P', 'person_lip_image 必须是 P 模式'
+
+    # 获取图像数据
+    lip_data = np.array(person_lip_image)
+
+    # 定义目标类别索引
+    if target_cloth_type == 'upper':
+        target_indices = [LIP_MAPPING[_] for _ in ['Upper-clothes', 'Dress', 'Coat', 'Jumpsuits']]
+    elif target_cloth_type == 'lower':
+        target_indices = [LIP_MAPPING[_] for _ in ['Pants', 'Skirt']]
+    elif target_cloth_type == 'full':
+        target_indices = [LIP_MAPPING[_] for _ in ['Upper-clothes', 'Dress', 'Coat', 'Jumpsuits', 'Pants', 'Skirt']]
+    else:
+        raise ValueError("target_cloth_type 必须是 'upper', 'lower' 或 'full'")
+
+    # 创建 Mask
+    mask = np.zeros_like(lip_data, dtype=np.uint8)
+    for idx in target_indices:
+        mask[lip_data == idx] = 255
+
+    # 转换为 PIL 图像
+    return Image.fromarray(mask, mode='L')
+
 # 判断图像是否为高质量
 def is_image_high_quality(image_path, threshold=100):
     """
@@ -70,7 +119,7 @@ def extract_dominant_color(image, k=3):
     返回:
         tuple: 主色调的BGR值 (B, G, R)。
     """
-    # 将图像转换为二维数组 (像素数, 3)
+    # 将图像转换为二维数�� (像素数, 3)
     data = image.reshape((-1, 3))
     data = np.float32(data)
     # 使用K均值聚类
@@ -174,7 +223,7 @@ def has_more_than_three_white_edges(mask_path_or_image: Union[str, Image.Image, 
         else:
             mask_image = mask_path_or_image
     else:
-        raise TypeError("mask_path_or_image 必须是 str, Image.Image 或 numpy.ndarray 类型")
+        raise TypeError("mask_path_or_image 必��是 str, Image.Image 或 numpy.ndarray 类型")
 
     # 转换为二值图像
     _, binary_mask = cv2.threshold(np.array(mask_image), 127, 255, cv2.THRESH_BINARY)
