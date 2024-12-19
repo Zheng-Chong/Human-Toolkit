@@ -89,7 +89,7 @@ ROOT/
 
 ### 参数说明
 
-- `--jsonl_path`：输入的 JSONL 文件路径（必需），每行包含以下格式的 JSON：
+- `--jsonl_path`：输入的 JSONL 文件路径���必需），每行包含以下格式的 JSON：
   ```json
   {
     "person": "person/图片路径.jpg", # 与 --jsonl_path 同级目录
@@ -174,7 +174,7 @@ python image_caption.py --input_dir 图片目录 --output_file 输出文件.json
 - 支持批量处理图片目录
 - 多GPU并行处理，提高效率
 - 为每张图片生成三种不同详细程度的描述
-- 支持断点续传，可以继续处理未完成的任务
+- 支持断点续传，可以继续处理未��成的任务
 - 使用 JSONL 格式保存结果，便于后续处理
 
 ### 参数说明
@@ -219,3 +219,83 @@ python image_caption.py --input_dir ./images --output_file captions.jsonl --num_
 1. 支持的图片格式：JPG、JPEG、PNG、BMP
 2. 请确保有足够的磁盘空间存储处理结果
 3. 首次运行时会自动下载模型文件，需要保持网络连接
+
+## 数据清洗工具
+
+### 使用方法
+
+基本用法：
+```bash
+python clean_data.py --jsonl_path 数据文件.jsonl [可选参数]
+```
+
+### 功能特点
+
+- 自动过滤不符合条件的数据项
+- 支持多线程并行处理
+- 检查上衣和外套叠穿情况
+- 根据 CLIP 相似度过滤数据
+- 支持断点续传，可以继续处理未完成的任务
+
+### 参数说明
+
+- `--jsonl_path`：输入的 JSONL 文件路径（必需）
+- `--output_jsonl_path`：输出的 JSONL 文件路径（可选，默认为输入文件名 + `_cleaned.jsonl`）
+- `--max_workers`：并行处理的线程数，默认为 16
+- `--clip_similarity_threshold`：CLIP 相似度阈值，默认为 0.8
+
+### 数据文件要求
+
+`--jsonl_path` 所在目录需包含 person/ 和 cloth/ 两个目录，且与 annotations/ 同级：
+```
+ROOT/
+├── annotations/
+│   ├── mask_v1/
+│   ├── schp_lip/
+│   └── cloth_matting/
+├── person/
+├── cloth/
+└── data.jsonl
+```
+
+### 输入文件格式
+
+每行为一个 JSON 对象，包含以下字段：
+```json
+{
+    "person": "person/图片路径.jpg",
+    "cloth": "cloth/图片路径.jpg",
+    "category": "upper"  // 可选值：upper, lower, full
+}
+```
+
+### 过滤条件
+
+数据清洗工具会根据以下条件过滤数据：
+
+1. 检查 person 和 cloth 图片是否存在
+2. 检查图片掩码是否存在
+3. 过滤白边超过3个的图片
+4. 检查 person 和 cloth 的颜色相似度
+5. 检查是否存在上衣和外套叠穿
+6. 根据 CLIP 相似度阈值过滤数据
+
+### 示例
+
+```bash
+# 基本用法
+python clean_data.py --jsonl_path ./data.jsonl
+
+# 自定义输出文件和线程数
+python clean_data.py --jsonl_path ./data.jsonl --output_jsonl_path ./cleaned_data.jsonl --max_workers 8
+
+# 调整 CLIP 相似度阈值
+python clean_data.py --jsonl_path ./data.jsonl --clip_similarity_threshold 0.9
+```
+
+### 注意事项
+
+1. 确保已安装所有依赖库
+2. 数据清洗过程可能会显著减少数据量
+3. 建议在处理大规模数据集时调整线程数和 CLIP 相似度阈值
+4. 支持断点续传，可以多次运行同一个命令
