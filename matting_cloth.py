@@ -93,7 +93,8 @@ def process_cloth_batch(
         # 预处理所有items的路径
         for item in items:
             cloth_path = str(src_root / item['cloth'])
-            # if output_dir is None:
+            if 'cloth' not in cloth_path:
+                continue
             output_dir = os.path.dirname(cloth_path).replace('cloth', 'annotations/cloth_matting')
                 
             if not os.path.exists(os.path.join(output_dir, os.path.basename(cloth_path).replace('.jpg', '.png'))):

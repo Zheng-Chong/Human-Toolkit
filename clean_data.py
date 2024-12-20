@@ -4,7 +4,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from typing import List, Dict, Set
-from data_cleaner.utils import wear_upper_with_outer, are_dominant_colors_similar, has_more_than_three_white_edges
+from data_cleaner.utils import is_image_clear, wear_upper_with_outer, are_dominant_colors_similar, has_more_than_three_white_edges, is_cloth_area_too_large
 from data_cleaner.clip_similarity import CLIPSimilarityCalculator
 from PIL import Image
 
@@ -27,7 +27,7 @@ def load_processed_items(output_jsonl_path: str) -> Set[str]:
                 processed_items.add(json.dumps(item, sort_keys=True))
     return processed_items
 
-def process_single_item(item: dict, src_root: Path, clip_similarity_threshold: float = 0.7) -> dict:
+def process_single_item(item: dict, src_root: Path, clip_similarity_threshold: float = 0.7, cloth_only: bool = False) -> dict:
     """
     处理单个数据项，检查是否包含上衣和外套叠穿，以及 person 和 cloth 的相似度
     
@@ -61,36 +61,6 @@ def process_single_item(item: dict, src_root: Path, clip_similarity_threshold: f
             print(f"部分文件不存在: {[f for f in required_files if not os.path.exists(f)]}")
             return None
         
-        # 检查是否有大于3个边上有白色
-        if has_more_than_three_white_edges(person_mask_path) or has_more_than_three_white_edges(cloth_mask_path):
-            return None
-
-        # 检查颜色相似度
-        color_result = are_dominant_colors_similar(
-            person_path, 
-            cloth_path,
-            person_mask_path,
-            cloth_mask_path,
-            threshold=50
-        )
-        if not color_result['is_similar']:
-            return None
-
-        # 检查是否是上衣和外套叠穿
-        if item['category'] == 'upper' or item['category'] == 'full':
-            schp_lip_path = person_path.replace('person', 'annotations/schp_lip').replace('.jpg', '.png')
-            if not os.path.exists(schp_lip_path):
-                print(f"SCHP LIP文件不存在: {schp_lip_path}")
-                return None
-
-            if schp_lip_path in PROCESSED_LIP:
-                flag = PROCESSED_LIP[schp_lip_path]
-            else:
-                flag = wear_upper_with_outer(schp_lip_path)
-                PROCESSED_LIP[schp_lip_path] = flag
-            if flag:
-                return None
-        
         # 计算 CLIP 相似度
         try:
             clip_similarity = CLIP_CALCULATOR.calculate_similarity(
@@ -103,6 +73,44 @@ def process_single_item(item: dict, src_root: Path, clip_similarity_threshold: f
         except Exception as clip_error:
             print(f"CLIP 相似度计算失败: {clip_error}")
             return None
+        
+        # 检查图像是否清晰
+        is_clear, _ = is_image_clear(person_path, threshold=100)
+        if not is_clear:
+            return None
+        
+        # # 检查是否有大于3个边上有白色
+        # if has_more_than_three_white_edges(person_mask_path) or has_more_than_three_white_edges(cloth_mask_path):
+        #     return None
+
+        # # 检查颜色相似度
+        # color_result = are_dominant_colors_similar(
+        #     person_path, 
+        #     cloth_path,
+        #     person_mask_path,
+        #     cloth_mask_path,
+        #     threshold=50
+        # )
+        # if not color_result['is_similar']:
+        #     return None
+        
+        # 检查服装区域是否过大
+        schp_lip_path = person_path.replace('person', 'annotations/schp_lip').replace('.jpg', '.png')
+        if is_cloth_area_too_large(schp_lip_path, threshold=0.5):
+            return None
+
+        # 检查是否是上衣和外套叠穿
+        if item['category'] == 'upper' or item['category'] == 'full':
+            if not os.path.exists(schp_lip_path):
+                print(f"SCHP LIP文件不存在: {schp_lip_path}")
+                return None
+            if schp_lip_path in PROCESSED_LIP:
+                flag = PROCESSED_LIP[schp_lip_path]
+            else:
+                flag = wear_upper_with_outer(schp_lip_path)
+                PROCESSED_LIP[schp_lip_path] = flag
+            if flag:
+                return None
 
         return item
     except Exception as e:
@@ -113,7 +121,8 @@ def clean_data(
     jsonl_path: str,
     output_jsonl_path: str = None,
     max_workers: int = 4,
-    clip_similarity_threshold: float = 0.7
+    clip_similarity_threshold: float = 0.7,
+    cloth_only: bool = False
 ) -> List[Dict]:
     """
     清洗数据，去除上衣和外套叠穿的样本，并根据 CLIP 相似度过滤
@@ -151,11 +160,16 @@ def clean_data(
                 if item_hash in processed_items:
                     continue
                 
+                # 如果 cloth_only 为 True，则只保留服装和person配对的样本
+                if cloth_only and 'cloth' not in item['cloth']:
+                    continue
+                
                 future = executor.submit(
                     process_single_item, 
                     item, 
                     src_root, 
-                    clip_similarity_threshold
+                    clip_similarity_threshold,
+                    cloth_only
                 )
                 futures.append(future)
             
@@ -199,6 +213,8 @@ def main():
                       help='最大线程数 (默认: 16)')
     parser.add_argument('--clip_similarity_threshold', type=float, default=0.8,
                       help='CLIP相似度阈值 (默认: 0.8)')
+    parser.add_argument('--cloth_only', action='store_true',
+                      help='是否只保留服装和person配对的样本')
     
     args = parser.parse_args()
     
@@ -206,7 +222,8 @@ def main():
         jsonl_path=args.jsonl_path,
         output_jsonl_path=args.output_jsonl_path,
         max_workers=args.max_workers,
-        clip_similarity_threshold=args.clip_similarity_threshold
+        clip_similarity_threshold=args.clip_similarity_threshold,
+        cloth_only=args.cloth_only
     )
 
 if __name__ == '__main__':

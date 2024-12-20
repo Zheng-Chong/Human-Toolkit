@@ -79,8 +79,8 @@ def get_target_cloth_mask(
     # 转换为 PIL 图像
     return Image.fromarray(mask, mode='L')
 
-# 判断图像是否为高质量
-def is_image_high_quality(image_path, threshold=100):
+# 判断图像是否清晰
+def is_image_clear(image_path, threshold=100):
     """
     判断图像是否为清晰高质量原图。
 
@@ -104,6 +104,52 @@ def is_image_high_quality(image_path, threshold=100):
     return laplacian_var > threshold, laplacian_var
 
 
+# 利用LIP 判断是否所有服装的区域占了图像的 ratio 过大
+def is_cloth_area_too_large(person_lip_path_or_image: Union[str, Image.Image, np.ndarray], threshold=0.5):
+    """
+    利用LIP判断是否所有服装的区域占了图像的ratio过大。
+
+    参数:
+        person_lip_path_or_image (str | Image.Image | np.ndarray): 输入的 person_lip 文件路径或图像数据。
+        threshold (float): 服装区域占图像的最大比例阈值，默认为0.5（50%）。
+
+    返回:
+        bool: 如果服装区域超过阈值，返回 True，否则返回 False。
+    """
+    # 打开图片
+    if isinstance(person_lip_path_or_image, str):
+        person_lip_image = Image.open(person_lip_path_or_image)
+    elif isinstance(person_lip_path_or_image, Image.Image):
+        person_lip_image = person_lip_path_or_image
+    elif isinstance(person_lip_path_or_image, np.ndarray):
+        person_lip_image = Image.fromarray(person_lip_path_or_image)
+    else:
+        raise TypeError("输入必须是文件路径、PIL图像或NumPy数组")
+
+    # 确保图像是调色板模式
+    assert person_lip_image.mode == 'P', 'person_lip_image 必须是 P 模式'
+
+    # 获取图像数据
+    lip_data = np.array(person_lip_image)
+
+    # 定义所有服装类别的索引
+    cloth_indices = [
+        LIP_MAPPING[_] for _ in [
+            'Upper-clothes', 'Dress', 'Coat', 'Jumpsuits',  # 上半身服装
+            'Pants', 'Skirt'  # 下半身服装
+        ]
+    ]
+
+    # 计算总像素数和服装像素数
+    total_pixels = lip_data.size
+    cloth_pixels = np.sum(np.isin(lip_data, cloth_indices))
+
+    # 计算服装区域比例
+    cloth_ratio = cloth_pixels / total_pixels
+    # print(f"cloth_ratio: {cloth_ratio}")
+    # 判断是否超过阈值
+    return cloth_ratio > threshold
+
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
@@ -119,7 +165,7 @@ def extract_dominant_color(image, k=3):
     返回:
         tuple: 主色调的BGR值 (B, G, R)。
     """
-    # 将图像转换为二维数�� (像素数, 3)
+    # 将图像转换为二维数组 (像素数, 3)
     data = image.reshape((-1, 3))
     data = np.float32(data)
     # 使用K均值聚类
@@ -155,7 +201,7 @@ def are_dominant_colors_similar(
         threshold (float): 颜色距离的阈值，默认为50。
 
     返回:
-        dict: 包括是否一致 (bool) 和每个图像的均值颜色及距离。
+        dict: 包括是否一致 (bool) 和每个图像���均值颜色及距离。
     """
     # 读取图像
     image1 = cv2.imread(image1_path)
@@ -223,7 +269,7 @@ def has_more_than_three_white_edges(mask_path_or_image: Union[str, Image.Image, 
         else:
             mask_image = mask_path_or_image
     else:
-        raise TypeError("mask_path_or_image 必��是 str, Image.Image 或 numpy.ndarray 类型")
+        raise TypeError("mask_path_or_image 必须是 str, Image.Image 或 numpy.ndarray 类型")
 
     # 转换为二值图像
     _, binary_mask = cv2.threshold(np.array(mask_image), 127, 255, cv2.THRESH_BINARY)
