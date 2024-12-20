@@ -89,7 +89,7 @@ ROOT/
 
 ### 参数说明
 
-- `--jsonl_path`：输入的 JSONL 文件路径���必需），每行包含以下格式的 JSON：
+- `--jsonl_path`：输入的 JSONL 文件路径（必需），每行包含以下格式的 JSON：
   ```json
   {
     "person": "person/图片路径.jpg", # 与 --jsonl_path 同级目录
@@ -174,7 +174,7 @@ python image_caption.py --input_dir 图片目录 --output_file 输出文件.json
 - 支持批量处理图片目录
 - 多GPU并行处理，提高效率
 - 为每张图片生成三种不同详细程度的描述
-- 支持断点续传，可以继续处理未��成的任务
+- 支持断点续���，可以继续处理未完成的任务
 - 使用 JSONL 格式保存结果，便于后续处理
 
 ### 参数说明
@@ -299,3 +299,47 @@ python clean_data.py --jsonl_path ./data.jsonl --clip_similarity_threshold 0.9
 2. 数据清洗过程可能会显著减少数据量
 3. 建议在处理大规模数据集时调整线程数和 CLIP 相似度阈值
 4. 支持断点续传，可以多次运行同一个命令
+
+## 图像中心裁剪工具
+
+### 使用方法
+
+基本用法：
+```bash
+python center_crop.py 图片目录
+```
+
+### 功能特点
+
+- 支持批量处理图片目录
+- 多线程并行处理
+- 将图像裁剪到长宽都是8的倍数的最大区域
+- 直接覆盖原图像文件
+
+### 参数说明
+
+- `folder`：要处理的图像文件夹路径（必需）
+
+### 支持的图像格式
+
+- JPG/JPEG
+- PNG
+- BMP
+- GIF
+- TIFF
+
+### 示例
+
+```bash
+# 处理 images 目录下的所有图像
+python center_crop.py ./images
+
+# 处理 Pictures 目录下的图像
+python center_crop.py ~/Pictures
+```
+
+### 注意事项
+
+1. 脚本会直接覆盖原图像，请确保已备份重要图像
+2. 裁剪区域始终从图像中心向外裁剪
+3. 确保目标目录有读写权限

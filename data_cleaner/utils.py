@@ -187,33 +187,60 @@ def color_distance(color1, color2):
     return np.linalg.norm(np.array(color1) - np.array(color2))
 
 def are_dominant_colors_similar(
-    image1_path, image2_path, 
-    mask1_path=None, mask2_path=None,
+    image1, image2, 
+    mask1=None, mask2=None,
     threshold=50):
     """
     判断两个图像的主色调是否一致。
 
     参数:
-        image1_path (str): 第一张图像的路径。
-        image2_path (str): 第二张图像的路径。
-        mask1_path (str, optional): 第一张图像的掩膜路径。默认为 None。
-        mask2_path (str, optional): 第二张图像的掩膜路径。默认为 None。
+        image1 (str | PIL.Image.Image | np.ndarray): 第一张图像的路径或图像。
+        image2 (str | PIL.Image.Image | np.ndarray): 第二张图像的路径或图像。
+        mask1 (str | PIL.Image.Image | np.ndarray, optional): 第一张图像的掩膜。默认为 None。
+        mask2 (str | PIL.Image.Image | np.ndarray, optional): 第二张图像的掩膜。默认为 None。
         threshold (float): 颜色距离的阈值，默认为50。
 
     返回:
-        dict: 包括是否一致 (bool) 和每个图像���均值颜色及距离。
+        dict: 包括是否一致 (bool) 和每个图像的均值颜色及距离。
     """
+    # 转换图像为 OpenCV 格式
+    def convert_to_cv2_image(img):
+        if isinstance(img, str):
+            return cv2.imread(img)
+        elif isinstance(img, Image.Image):
+            return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+        elif isinstance(img, np.ndarray):
+            return img
+        else:
+            raise TypeError("图像必须是文件路径、PIL图像或NumPy数组")
+
+    # 转换掩膜为灰度图
+    def convert_to_mask(mask):
+        if mask is None:
+            return None
+        if isinstance(mask, str):
+            return cv2.imread(mask, cv2.IMREAD_GRAYSCALE)
+        elif isinstance(mask, Image.Image):
+            return np.array(mask.convert('L'))
+        elif isinstance(mask, np.ndarray):
+            if len(mask.shape) == 3:
+                return cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+            return mask
+        else:
+            raise TypeError("掩膜必须是文件路径、PIL图像或NumPy数组")
+
     # 读取图像
-    image1 = cv2.imread(image1_path)
-    image2 = cv2.imread(image2_path)
+    image1 = convert_to_cv2_image(image1)
+    image2 = convert_to_cv2_image(image2)
     if image1 is None or image2 is None:
-        raise ValueError("无法读取图像，请检查路径是否正确。")
+        raise ValueError("无法读取图像，请检查输入是否正确。")
+    
+    # 读取掩膜
+    mask1 = convert_to_mask(mask1)
+    mask2 = convert_to_mask(mask2)
     
     # 计算第一张图像的均值颜色
-    if mask1_path:
-        mask1 = cv2.imread(mask1_path, cv2.IMREAD_GRAYSCALE)
-        if mask1 is None:
-            raise ValueError("无法读取掩膜1，请检查路径是否正确。")
+    if mask1 is not None:
         # 创建布尔掩膜
         mask1_bool = mask1 >= 128
         # 计算每个通道的均值
@@ -223,10 +250,7 @@ def are_dominant_colors_similar(
         mean_color1 = tuple([int(image1[:, :, c].mean()) for c in range(3)])
     
     # 计算第二张图像的均值颜色
-    if mask2_path:
-        mask2 = cv2.imread(mask2_path, cv2.IMREAD_GRAYSCALE)
-        if mask2 is None:
-            raise ValueError("无法读取掩膜2，请检查路径是否正确。")
+    if mask2 is not None:
         # 创建布尔掩膜
         mask2_bool = mask2 >= 128
         # 计算每个通道的均值

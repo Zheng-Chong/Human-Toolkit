@@ -4,7 +4,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from typing import List, Dict, Set
-from data_cleaner.utils import is_image_clear, wear_upper_with_outer, are_dominant_colors_similar, has_more_than_three_white_edges, is_cloth_area_too_large
+from data_cleaner.utils import get_target_cloth_mask, is_image_clear, wear_upper_with_outer, are_dominant_colors_similar, has_more_than_three_white_edges, is_cloth_area_too_large
 from data_cleaner.clip_similarity import CLIPSimilarityCalculator
 from PIL import Image
 
@@ -46,14 +46,17 @@ def process_single_item(item: dict, src_root: Path, clip_similarity_threshold: f
         cloth_path = str(src_root / item['cloth'])
         
         # 构造掩码路径
-        person_mask_path = person_path.replace('person', 'annotations/mask_v1')
+        person_mask_path = person_path.replace('person', 'annotations/schp_lip')
         person_mask_path = person_mask_path.replace('.jpg', '.png')
+        person_mask = get_target_cloth_mask(person_mask_path, item['category'])
         if 'cloth' in cloth_path:
             cloth_mask_path = cloth_path.replace('cloth', 'annotations/cloth_matting')
             cloth_mask_path = cloth_mask_path.replace('.jpg', '.png')
+            cloth_mask = Image.open(cloth_mask_path)
         else:
-            cloth_mask_path = cloth_path.replace('person', 'annotations/mask_v1')
+            cloth_mask_path = cloth_path.replace('person', 'annotations/schp_lip')
             cloth_mask_path = cloth_mask_path.replace('.jpg', '.png')
+            cloth_mask = get_target_cloth_mask(cloth_mask_path, item['category'])
 
         # 检查文件是否存在
         required_files = [person_path, cloth_path, person_mask_path, cloth_mask_path]
@@ -61,11 +64,22 @@ def process_single_item(item: dict, src_root: Path, clip_similarity_threshold: f
             print(f"部分文件不存在: {[f for f in required_files if not os.path.exists(f)]}")
             return None
         
+        # 检查颜色相似度
+        color_result = are_dominant_colors_similar(
+            person_path, 
+            cloth_path,
+            person_mask,
+            cloth_mask,
+            threshold=50
+        )
+        if not color_result['is_similar']:
+            return None
+        
         # 计算 CLIP 相似度
         try:
             clip_similarity = CLIP_CALCULATOR.calculate_similarity(
                 person_path, cloth_path, 
-                person_mask_path, cloth_mask_path
+                person_mask, cloth_mask
             )
             # 如果 CLIP 相似度低于阈值，则过滤掉
             if clip_similarity < clip_similarity_threshold:
@@ -81,17 +95,6 @@ def process_single_item(item: dict, src_root: Path, clip_similarity_threshold: f
         
         # # 检查是否有大于3个边上有白色
         # if has_more_than_three_white_edges(person_mask_path) or has_more_than_three_white_edges(cloth_mask_path):
-        #     return None
-
-        # # 检查颜色相似度
-        # color_result = are_dominant_colors_similar(
-        #     person_path, 
-        #     cloth_path,
-        #     person_mask_path,
-        #     cloth_mask_path,
-        #     threshold=50
-        # )
-        # if not color_result['is_similar']:
         #     return None
         
         # 检查服装区域是否过大
