@@ -62,7 +62,7 @@ def process_item(item: dict, masker: AutoMasker, output_dir: str=None) -> str:
         schp_lip_path = person_path.replace('person', 'annotations/schp_lip').replace('.jpg', '.png')
         schp_atr_path = person_path.replace('person', 'annotations/schp_atr').replace('.jpg', '.png')
        
-        return compose_single_mask_with_masker(
+        compose_single_mask_with_masker(
             paths=(densepose_path, schp_lip_path, schp_atr_path),
             masker=masker,
             part=item['category'],
@@ -70,6 +70,25 @@ def process_item(item: dict, masker: AutoMasker, output_dir: str=None) -> str:
             width=person_width,
             height=person_height
         )
+    # 如果category不是full，则同时再生成一个full的mask
+    if item['category'] != 'full':
+        if not os.path.exists(os.path.join(output_dir+"_full", os.path.basename(person_path).replace('.jpg', '.png'))):
+            # 获取 person 的尺寸
+            person_img = Image.open(person_path)
+            person_width, person_height = person_img.size
+            # 根据person路径构造对应的预处理结果路径
+            densepose_path = person_path.replace('person', 'annotations/densepose').replace('.jpg', '.png')
+            schp_lip_path = person_path.replace('person', 'annotations/schp_lip').replace('.jpg', '.png')
+            schp_atr_path = person_path.replace('person', 'annotations/schp_atr').replace('.jpg', '.png')
+            compose_single_mask_with_masker(
+                paths=(densepose_path, schp_lip_path, schp_atr_path),
+                masker=masker,
+                part='full',
+                output_dir=output_dir+"_full",
+                width=person_width,
+                height=person_height
+            )
+        return os.path.join(output_dir, os.path.basename(person_path).replace('.jpg', '.png'))
     else:
         # 尝试读取，看是否有问题
         try:
