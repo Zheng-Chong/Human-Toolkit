@@ -1,12 +1,10 @@
 import os
 import clip
 import torch
-from PIL import Image, ImageOps
+from PIL import Image
 from huggingface_hub import snapshot_download
 from typing import Union, List
-import numpy as np
-import cv2
-
+from data_cleaner.utils import crop_to_max_square_region, get_target_cloth_mask
 
 class CLIPSimilarityCalculator:
     def __init__(self, model_path="zhengchong/Human-Toolkit", device="cuda"):
@@ -39,36 +37,8 @@ class CLIPSimilarityCalculator:
         if mask_path is not None:
             # 统一 mask 输入类型
             mask = mask_path if isinstance(mask_path, Image.Image) else Image.open(mask_path)
-            
-            # 转换为灰度并获取非零区域
-            mask_array = np.array(mask.convert('L'))
-            rows = np.any(mask_array > 0, axis=1)
-            cols = np.any(mask_array > 0, axis=0)
-            
-            # 获取非零区域边界
-            rmin, rmax = np.where(rows)[0][[0, -1]]
-            cmin, cmax = np.where(cols)[0][[0, -1]]
-            
-            # 计算最大正方形区域
-            width = cmax - cmin + 1
-            height = rmax - rmin + 1
-            size = max(width, height)
-            
-            # 计算中心点和裁剪区域
-            center_x = (cmin + cmax) // 2
-            center_y = (rmin + rmax) // 2
-            x1 = max(0, center_x - size // 2)
-            y1 = max(0, center_y - size // 2)
-            x2 = min(image.width, x1 + size)
-            y2 = min(image.height, y1 + size)
-            
-            # 裁剪图像和 mask
-            image = image.crop((x1, y1, x2, y2))
-            mask = mask.crop((x1, y1, x2, y2))
-            
-            # 处理 mask
-            mask = ImageOps.invert(mask.convert('L'))
-            image = Image.composite(Image.new('RGB', image.size, 'white'), image, mask)
+            # 裁剪到最大正方形区域
+            image  = crop_to_max_square_region(image, mask)
         
         # 预处理并返回图像张量
         return self.preprocess(image).unsqueeze(0).to(self.device)
@@ -124,65 +94,6 @@ class CLIPSimilarityCalculator:
         return similarities
 
 
-
-
-# 获取目标服装区域的 Mask
-def get_target_cloth_mask(
-    person_lip_path_or_image: Union[str, Image.Image, np.ndarray],
-    target_cloth_type: str
-) -> Image.Image:
-    """
-    获取目标服装区域的 Mask
-    
-    参数:
-        person_lip_path_or_image (str | Image.Image | np.ndarray): 输入的 person_lip 文件路径或图像数据。
-        target_cloth_type (str): 目标服装类型，可选 'upper' 'lower' 或 'full'。
-    
-    返回:
-        Image.Image: 目标服装区域的 Mask。
-    """
-    # 打开图片
-    if isinstance(person_lip_path_or_image, str):
-        person_lip_image = Image.open(person_lip_path_or_image)
-    elif isinstance(person_lip_path_or_image, Image.Image):
-        person_lip_image = person_lip_path_or_image
-    elif isinstance(person_lip_path_or_image, np.ndarray):
-        person_lip_image = Image.fromarray(person_lip_path_or_image)
-    else:
-        raise TypeError("输入必须是文件路径、PIL图像或NumPy数组")
-
-    # 确保图像是调色板模式
-    assert person_lip_image.mode == 'P', 'person_lip_image 必须是 P 模式'
-
-    # 获取图像数据
-    lip_data = np.array(person_lip_image)
-
-    # 定义目标类别索引
-    LIP_MAPPING = {
-        'Background': 0, 'Hat': 1, 'Hair': 2, 'Glove': 3, 
-        'Sunglasses': 4, 'Upper-clothes': 5, 'Dress': 6, 'Coat': 7,
-        'Socks': 8, 'Pants': 9, 'Jumpsuits': 10, 'Scarf': 11, 
-        'Skirt': 12, 'Face': 13, 'Left-arm': 14, 'Right-arm': 15,
-        'Left-leg': 16, 'Right-leg': 17, 'Left-shoe': 18, 'Right-shoe': 19
-    }
-    if target_cloth_type == 'upper':
-        target_indices = [LIP_MAPPING[_] for _ in ['Upper-clothes', 'Dress', 'Coat', 'Jumpsuits']]
-    elif target_cloth_type == 'lower':
-        target_indices = [LIP_MAPPING[_] for _ in ['Pants', 'Skirt']]
-    elif target_cloth_type == 'full':
-        target_indices = [LIP_MAPPING[_] for _ in ['Upper-clothes', 'Dress', 'Coat', 'Jumpsuits', 'Pants', 'Skirt']]
-    else:
-        raise ValueError("target_cloth_type 必须是 'upper', 'lower' 或 'full'")
-
-    # 创建 Mask
-    mask = np.zeros_like(lip_data, dtype=np.uint8)
-    for idx in target_indices:
-        mask[lip_data == idx] = 255
-
-    # 转换为 PIL 图像
-    return Image.fromarray(mask, mode='L')
-
- 
 # 示例使用
 if __name__ == "__main__":
     calculator = CLIPSimilarityCalculator()

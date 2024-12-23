@@ -1,0 +1,78 @@
+.
+├── center_crop.py
+├── clean_data.py
+├── cloth_masker.py
+├── data_cleaner
+│   ├── aesthetic_scorer_v2.py
+│   ├── clip_similarity.py
+│   ├── __pycache__
+│   └── utils.py
+├── Datasets -> /mnt/data/Datasets/
+├── densepose
+│   ├── config.py
+│   ├── converters
+│   ├── data
+│   ├── engine
+│   ├── evaluation
+│   ├── __init__.py
+│   ├── modeling
+│   ├── pipeline.py
+│   ├── __pycache__
+│   ├── structures
+│   ├── utils
+│   └── vis
+├── detectron2
+│   ├── _C.cpython-39-x86_64-linux-gnu.so
+│   ├── checkpoint
+│   ├── config
+│   ├── data
+│   ├── engine
+│   ├── evaluation
+│   ├── export
+│   ├── __init__.py
+│   ├── layers
+│   ├── modeling
+│   ├── model_zoo
+│   ├── projects
+│   ├── __pycache__
+│   ├── solver
+│   ├── structures
+│   ├── tracking
+│   └── utils
+├── directory_structure.txt
+├── GroundingDINO
+│   ├── build
+│   ├── groundingdino
+│   ├── groundingdino.egg-info
+│   ├── LICENSE
+│   ├── requirements.txt
+│   └── setup.py
+├── image_caption.py
+├── main.py
+├── MAM
+│   ├── __init__.py
+│   ├── networks
+│   ├── __pycache__
+│   └── utils
+├── mask_compose.py
+├── matting_cloth.py
+├── playground.py
+├── __pycache__
+│   ├── cloth_masker.cpython-39.pyc
+│   └── utils.cpython-39.pyc
+├── README.md
+├── requirements.txt
+├── SAM
+│   ├── LICENSE
+│   ├── linter.sh
+│   ├── segment_anything
+│   ├── setup.cfg
+│   └── setup.py
+├── SCHP
+│   ├── __init__.py
+│   ├── networks
+│   ├── __pycache__
+│   └── utils
+└── utils.py
+
+44 directories, 31 files

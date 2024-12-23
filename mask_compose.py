@@ -50,7 +50,7 @@ def compose_single_mask_with_masker(
 def process_item(item: dict, masker: AutoMasker, output_dir: str=None) -> str:
     """处理单个数据项的函数"""
     person_path = item['person']
-    if output_dir is None:
+    if not output_dir:
         output_dir = os.path.dirname(person_path).replace('person', 'annotations/mask_v1')
         
     if not os.path.exists(os.path.join(output_dir, os.path.basename(person_path).replace('.jpg', '.png'))):
@@ -124,6 +124,11 @@ def compose_masks(
         # 修改：预处理所有items的路径
         for item in items:
             item['person'] = str(src_root / item['person'])
+            
+            # 去除已经处理过的item
+            if os.path.exists(item['person'].replace('person', 'annotations/mask_v1').replace('.jpg', '.png')):
+                continue
+            
             future = executor.submit(process_item, item, masker, output_dir)
             futures.append(future)
         

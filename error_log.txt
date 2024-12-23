@@ -1,0 +1,49 @@
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: index 0 is out of bounds for axis 0 with size 0
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: index 0 is out of bounds for axis 0 with size 0
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: index 0 is out of bounds for axis 0 with size 0
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: index 0 is out of bounds for axis 0 with size 0
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: index 0 is out of bounds for axis 0 with size 0
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: index 0 is out of bounds for axis 0 with size 0
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
+Error processing future: Object of type bool_ is not JSON serializable
