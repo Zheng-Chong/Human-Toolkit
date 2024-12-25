@@ -99,7 +99,7 @@ def process_images(args):
     image_files = [
         img_path for img_path in input_path.glob('**/*')
         if img_path.suffix.lower() in img_extensions
-        and str(img_path.absolute()) not in processed_images  # 只处理未处理过的图片
+        and img_path.name not in processed_images  # 只处理未处理过的图片
     ]
     
     if not image_files:
